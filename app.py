@@ -178,9 +178,17 @@ def get_ai_response(query_text, context_data=None):
              return random.choice(responses_success)
 
     try:
+        # Check if it looks like an OpenRouter key (starts with sk-or-)
+        base_url = "https://api.siliconflow.cn/v1"
+        model = "deepseek-ai/DeepSeek-V3"
+        
+        if api_key.startswith("sk-or-"):
+            base_url = "https://openrouter.ai/api/v1"
+            model = "deepseek/deepseek-chat" # OpenRouter DeepSeek V3
+
         client = OpenAI(
             api_key=api_key,
-            base_url="https://api.siliconflow.cn/v1"
+            base_url=base_url
         )
         
         system_prompt = f"""
@@ -192,7 +200,7 @@ def get_ai_response(query_text, context_data=None):
         """
         
         response = client.chat.completions.create(
-            model="deepseek-ai/DeepSeek-V3",
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query_text}
@@ -473,4 +481,3 @@ with tab3:
             st.altair_chart(pie + text, use_container_width=True)
         else:
             st.info("暂无数据")
-
