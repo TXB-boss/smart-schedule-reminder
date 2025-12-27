@@ -145,71 +145,105 @@ def smart_search(query, df):
 
 # AI Persona Response
 def get_ai_response(query_text, context_data=None):
-    # Try using DeepSeek API (Free tier compatible) via SiliconFlow or direct
-    # For this demo, we will use a free, public endpoint if available, or simulate smart response
-    # But since user asked for REAL AI, let's try to set up a structure for it.
+    """
+    Super Smart Local Logic (Rule-based)
+    Generates human-like responses based on time, course load, and query type without external API.
+    """
+    import random
     
-    # We will use SiliconFlow's free API for DeepSeek-V3 if API key is present
-    # Otherwise fallback to local logic
+    # 1. Analyze the context (is it empty? has courses?)
+    has_courses = False
+    course_count = 0
+    is_morning = False
+    is_evening = False
+    is_weekend = False
     
-    api_key = os.getenv("SILICONFLOW_API_KEY") # User needs to set this in Streamlit secrets
-    
-    if not api_key:
-        # Fallback to local logic if no key
-        if "冲突" in query_text or "空闲" in query_text:
-            return "正在为您分析时间安排..."
+    # Simple parsing of context_data string
+    if context_data and "该时段无课" not in context_data and "未找到匹配课程" not in context_data:
+        has_courses = True
+        # Estimate count by newlines
+        course_count = len(context_data.strip().split('\n')) - 1 # minus header
+        if course_count < 1: course_count = 1
         
-        # Smart Local Response Simulation
-        responses_success = [
-            "主人，为您找到了这些课程信息！学习加油哦！💪",
-            "报告长官，目标课程已定位！📍",
-            "看来这门课很重要呢，千万别迟到啦！⏰",
-            "数据检索完成！这门课的老师好像很厉害的样子...🤔"
-        ]
-        responses_fail = [
-            "呜呜，翻遍了数据库也没找到这门课...是不是记错名字了？🥺",
-            "系统暂未收录相关信息，或许您可以换个关键词试试？🔍",
-            "咦？好像没有这节课耶，是不是可以出去玩了？🎉"
-        ]
-        
-        if "未找到" in str(context_data) or "无课" in str(context_data):
-             return random.choice(responses_fail)
+        # Check time keywords in data
+        if "08:" in context_data or "09:" in context_data: is_morning = True
+        if "19:" in context_data or "20:" in context_data: is_evening = True
+        if "Saturday" in context_data or "Sunday" in context_data: is_weekend = True
+
+    # 2. Analyze User Query Intent
+    query_lower = query_text.lower()
+    is_greeting = any(k in query_lower for k in ["你好", "hello", "hi", "在吗"])
+    is_conflict = any(k in query_lower for k in ["冲突", "空闲", "没课", "有时间"])
+    is_location = any(k in query_lower for k in ["在哪", "地点", "教室"])
+    is_exam = any(k in query_lower for k in ["考试", "复习"])
+    
+    # 3. Generate Response Logic
+    
+    # Case A: Greeting
+    if is_greeting:
+        return random.choice([
+            "👋 你好呀！我是你的智能课程助手，随时待命！",
+            "Hi！今天想查点什么？课表还是空闲时间？",
+            "我在呢！虽然我是个机器人，但我会一直陪着你学习的！🤖"
+        ])
+
+    # Case B: No Courses Found (Free Time)
+    if not has_courses:
+        if is_conflict:
+            return random.choice([
+                "好消息！这段时间完全空闲，没有任何冲突，放心安排！🎉",
+                "经过扫描，此时段无课。去图书馆卷一会儿，还是回宿舍躺平？🛌",
+                "完美！时间表一片空白，属于你的自由时间到了！"
+            ])
         else:
-             return random.choice(responses_success)
+            return random.choice([
+                "查了一下，这个时间段没有课哦！去喝杯奶茶放松一下吧！🥤",
+                "咦？好像没课耶。是不是记错时间了，还是这就是传说中的“没课日”？😎",
+                "系统显示无课。建议利用这段时间预习一下（或者打把游戏）？🎮"
+            ])
 
-    try:
-        # Check if it looks like an OpenRouter key (starts with sk-or-)
-        base_url = "https://api.siliconflow.cn/v1"
-        model = "deepseek-ai/DeepSeek-V3"
-        
-        if api_key.startswith("sk-or-"):
-            base_url = "https://openrouter.ai/api/v1"
-            model = "deepseek/deepseek-chat" # OpenRouter DeepSeek V3
+    # Case C: Has Courses (Busy)
+    if has_courses:
+        # Sub-case: Morning Classes
+        if is_morning:
+            msg = random.choice([
+                f"早起的鸟儿有虫吃！上午有 {course_count} 节课，记得吃早餐哦！🥯",
+                f"早八人集合！上午 {course_count} 节硬仗要打，带好水杯和书本！📚",
+                "一日之计在于晨，上午的课虽然多，但你可以的！加油！💪"
+            ])
+            return msg
+            
+        # Sub-case: Evening Classes
+        if is_evening:
+            msg = random.choice([
+                f"辛苦啦！晚上还有 {course_count} 节课。坚持一下，下课就能吃夜宵了！🍢",
+                "夜色温柔，但你还得去上课... 晚上注意安全哦！",
+                "晚课虽然累，但也是弯道超车的好机会！冲鸭！🦆"
+            ])
+            return msg
+            
+        # Sub-case: Many Classes (>=3)
+        if course_count >= 3:
+            msg = random.choice([
+                f"天哪，查到了 {course_count} 节课！这可是特种兵的一天，挺住！🛡️",
+                f"课表满满当当的 ({course_count} 节)，是充实的一天呢！注意劳逸结合。",
+                "这么多课... 摸摸头，上完奖励自己一顿大餐吧！🍲"
+            ])
+            return msg
+            
+        # Sub-case: Location Query
+        if is_location:
+            return f"帮你找到了！就在表格里写着呢，别跑错教室啦！🏃‍♂️"
 
-        client = OpenAI(
-            api_key=api_key,
-            base_url=base_url
-        )
-        
-        system_prompt = f"""
-        你是一个校园课程助手。现在的课程数据是：{context_data}。
-        当前时间是：{datetime.now().strftime('%Y-%m-%d %H:%M')}。
-        请根据用户的提问回答。如果用户问的是课程相关，请基于数据回答。
-        如果数据里没有，就说没找到。
-        语气要活泼可爱，像个贴心的学伴。
-        """
-        
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": query_text}
-            ],
-            stream=False
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"AI 连接有点小问题 ({str(e)})，但我还是帮您查到了课表！"
+        # Default Busy Response
+        return random.choice([
+            f"收到！为您查到了 {course_count} 节课的信息，详情请看下方表格。👇",
+            f"目标锁定！有 {course_count} 节课正在等着你。准备好去上课了吗？",
+            "数据检索完毕。看来是不能偷懒了，快去教室占座吧！💺"
+        ])
+
+    # Fallback
+    return "虽然我不确定你在说什么，但我还是尽力帮你找了找课表... 看看下面有没有？"
 
 # Visualization Logic
 def plot_course_stats(df):
@@ -436,10 +470,13 @@ with tab3:
     with col_viz1:
         st.markdown("### 🌡️ 课程分布热力图")
         if not heatmap_df.empty:
+            # Create shortened course names for display
+            heatmap_df['short_name'] = heatmap_df['course_name'].apply(lambda x: x[:4] + '...' if len(x) > 4 else x)
+            
             # Base chart
             base = alt.Chart(heatmap_df).encode(
                 x=alt.X('day_cn:N', title=None, sort=["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"], axis=alt.Axis(labelAngle=0)),
-                y=alt.Y('period:O', title='节次', sort='ascending'),
+                y=alt.Y('period:O', title='节次', sort='ascending', axis=alt.Axis(titleAngle=0, titleAlign="right", titleY=15)),
             ).properties(
                 height=400,
                 width='container'
@@ -448,12 +485,18 @@ with tab3:
             # Rectangles for background color
             rects = base.mark_rect(cornerRadius=5).encode(
                 color=alt.Color('course_name:N', legend=None),
-                tooltip=['day_cn', 'period', 'course_name', 'location', 'teacher']
+                tooltip=[
+                    alt.Tooltip('day_cn', title='星期'),
+                    alt.Tooltip('period', title='节次'),
+                    alt.Tooltip('course_name', title='课程名称'),
+                    alt.Tooltip('location', title='上课地点'),
+                    alt.Tooltip('teacher', title='任课教师')
+                ]
             )
 
             # Text labels for course names
             text = base.mark_text(baseline='middle', size=10, color='white').encode(
-                text=alt.Text('course_name'),
+                text=alt.Text('short_name'),
                 color=alt.value('white')
             )
 
@@ -463,15 +506,18 @@ with tab3:
             st.info("暂无数据")
 
     with col_viz2:
-        st.markdown("### 🍩 课程学时占比")
+        st.markdown("### 🍩 课程数量分布")
         if not course_counts.empty:
             base = alt.Chart(course_counts).encode(
                 theta=alt.Theta("count", stack=True)
             )
             pie = base.mark_arc(outerRadius=100, innerRadius=60).encode(
-                color=alt.Color("course_name"),
+                color=alt.Color("course_name", legend=None),
                 order=alt.Order("count", sort="descending"),
-                tooltip=["course_name", "count"]
+                tooltip=[
+                    alt.Tooltip('course_name', title='课程名称'),
+                    alt.Tooltip('count', title='节数')
+                ]
             )
             text = base.mark_text(radius=120).encode(
                 text="count",
@@ -481,3 +527,4 @@ with tab3:
             st.altair_chart(pie + text, use_container_width=True)
         else:
             st.info("暂无数据")
+
