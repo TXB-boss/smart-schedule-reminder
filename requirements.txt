@@ -6,3 +6,4 @@ python-Levenshtein
 setuptools
 wheel
 altair
+openai
