@@ -5,6 +5,8 @@ import time
 from thefuzz import process, fuzz
 import random
 import altair as alt
+from openai import OpenAI
+import os
 
 # Page Configuration
 st.set_page_config(
@@ -142,26 +144,47 @@ def smart_search(query, df):
     return results.drop(columns=['search_content'], errors='ignore')
 
 # AI Persona Response
-def get_ai_response(query_result_empty, query_text):
-    responses_success = [
-        "主人，为您找到了这些课程信息！学习加油哦！💪",
-        "报告长官，目标课程已定位！📍",
-        "看来这门课很重要呢，千万别迟到啦！⏰",
-        "数据检索完成！这门课的老师好像很厉害的样子...🤔"
-    ]
-    responses_fail = [
-        "呜呜，翻遍了数据库也没找到这门课...是不是记错名字了？🥺",
-        "系统暂未收录相关信息，或许您可以换个关键词试试？🔍",
-        "咦？好像没有这节课耶，是不是可以出去玩了？🎉"
-    ]
+def get_ai_response(query_text, context_data=None):
+    # Try using DeepSeek API (Free tier compatible) via SiliconFlow or direct
+    # For this demo, we will use a free, public endpoint if available, or simulate smart response
+    # But since user asked for REAL AI, let's try to set up a structure for it.
     
-    if "冲突" in query_text or "空闲" in query_text:
-        return "正在为您分析时间安排..."
+    # We will use SiliconFlow's free API for DeepSeek-V3 if API key is present
+    # Otherwise fallback to local logic
+    
+    api_key = os.getenv("SILICONFLOW_API_KEY") # User needs to set this in Streamlit secrets
+    
+    if not api_key:
+        # Fallback to local logic if no key
+        if "冲突" in query_text or "空闲" in query_text:
+            return "正在为您分析时间安排..."
+        return "（提示：要启用真AI对话，请在Streamlit Secrets中配置 SILICONFLOW_API_KEY。目前仅为您检索数据库。）"
 
-    if query_result_empty:
-        return random.choice(responses_fail)
-    else:
-        return random.choice(responses_success)
+    try:
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.siliconflow.cn/v1"
+        )
+        
+        system_prompt = f"""
+        你是一个校园课程助手。现在的课程数据是：{context_data}。
+        当前时间是：{datetime.now().strftime('%Y-%m-%d %H:%M')}。
+        请根据用户的提问回答。如果用户问的是课程相关，请基于数据回答。
+        如果数据里没有，就说没找到。
+        语气要活泼可爱，像个贴心的学伴。
+        """
+        
+        response = client.chat.completions.create(
+            model="deepseek-ai/DeepSeek-V3",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": query_text}
+            ],
+            stream=False
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"AI 连接有点小问题 ({str(e)})，但我还是帮您查到了课表！"
 
 # Visualization Logic
 def plot_course_stats(df):
@@ -320,7 +343,7 @@ with tab2:
         ai_msg = ""
         
         if "下周" in query:
-             ai_msg = "下周的课表通常和本周一样哦（除非有调休）。您可以直接查看本周课表，或者告诉我具体是下周几？📅"
+             ai_msg = get_ai_response(query, "用户询问下周课表，告知通常与本周一致")
              # Show full schedule
              result_df = search_df
         elif target_day:
@@ -335,20 +358,14 @@ with tab2:
                 elif time_period == "evening":
                     result_df = result_df[result_df['start_time'] >= "18:00"]
 
-            if is_conflict_check:
-                if result_df.empty:
-                    period_str = {"morning": "上午", "afternoon": "下午", "evening": "晚上"}.get(time_period, "全天")
-                    ai_msg = f"好消息！{WEEKDAYS_CN.get(target_day, target_day)} {period_str} 没课，可以尽情安排活动！🎉"
-                else:
-                    ai_msg = f"{WEEKDAYS_CN.get(target_day, target_day)} 还有 {len(result_df)} 节课，要注意时间冲突哦。📅"
-            else:
-                if result_df.empty:
-                    ai_msg = f"{WEEKDAYS_CN.get(target_day, target_day)} 这个时段没有安排课程哦，去休息一下吧！🛌"
-                else:
-                    ai_msg = f"为您查到了 {WEEKDAYS_CN.get(target_day, target_day)} 的 {len(result_df)} 节课。需要我帮您定个闹钟吗？⏰"
+            # Use Real AI to generate response based on data
+            data_context = result_df.to_string(index=False) if not result_df.empty else "该时段无课"
+            ai_msg = get_ai_response(query, data_context)
+
         else:
             result_df = smart_search(query, search_df)
-            ai_msg = get_ai_response(result_df.empty, query)
+            data_context = result_df.to_string(index=False) if not result_df.empty else "未找到匹配课程"
+            ai_msg = get_ai_response(query, data_context)
         
         # Display AI Message
         st.success(f"🤖 AI: {ai_msg}")
