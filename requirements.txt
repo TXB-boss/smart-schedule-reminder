@@ -1,0 +1,8 @@
+streamlit
+pandas
+numpy>=1.26.0
+thefuzz
+python-Levenshtein
+setuptools
+wheel
+altair
