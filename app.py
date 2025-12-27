@@ -158,7 +158,24 @@ def get_ai_response(query_text, context_data=None):
         # Fallback to local logic if no key
         if "冲突" in query_text or "空闲" in query_text:
             return "正在为您分析时间安排..."
-        return "（提示：要启用真AI对话，请在Streamlit Secrets中配置 SILICONFLOW_API_KEY。目前仅为您检索数据库。）"
+        
+        # Smart Local Response Simulation
+        responses_success = [
+            "主人，为您找到了这些课程信息！学习加油哦！💪",
+            "报告长官，目标课程已定位！📍",
+            "看来这门课很重要呢，千万别迟到啦！⏰",
+            "数据检索完成！这门课的老师好像很厉害的样子...🤔"
+        ]
+        responses_fail = [
+            "呜呜，翻遍了数据库也没找到这门课...是不是记错名字了？🥺",
+            "系统暂未收录相关信息，或许您可以换个关键词试试？🔍",
+            "咦？好像没有这节课耶，是不是可以出去玩了？🎉"
+        ]
+        
+        if "未找到" in str(context_data) or "无课" in str(context_data):
+             return random.choice(responses_fail)
+        else:
+             return random.choice(responses_success)
 
     try:
         client = OpenAI(
@@ -456,3 +473,4 @@ with tab3:
             st.altair_chart(pie + text, use_container_width=True)
         else:
             st.info("暂无数据")
+
