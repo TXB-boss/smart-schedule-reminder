@@ -7,3 +7,7 @@ setuptools
 wheel
 altair
 openai
+tzdata
+apscheduler
+yagmail
+requests
